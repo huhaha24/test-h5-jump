@@ -91,26 +91,29 @@
         <!-- 微信手机浏览器页面 -->
         <div id="wechat-web-container" class="hidden">
             <p class="">点击以下按钮打开 “小程序”</p>
-            <wx-open-launch-weapp id="launch-btn" username="gh_261a0fa4c000" path="/pages/index/index?from=tag">
+            <a href="javascript:" class="weui-btn weui-btn_primary" onclick="openWeapp()">
+              打开小程序
+            </a>
+            <!-- <wx-open-launch-weapp id="launch-btn" username="gh_261a0fa4c000" path="/pages/index/index?from=tag">
                 <template>
                     <style>
                         button {
-                            width: 200px;
-                            height: 45px;
-                            text-align: center;
-                            font-size: 17px;
-                            display: block;
-                            margin: 0 auto;
-                            padding: 8px 24px;
-                            border: none;
-                            border-radius: 4px;
-                            background-color: #07c160;
-                            color: #fff;
+                          width: 200px;
+                          height: 45px;
+                          text-align: center;
+                          font-size: 17px;
+                          display: block;
+                          margin: 0 auto;
+                          padding: 8px 24px;
+                          border: none;
+                          border-radius: 4px;
+                          background-color: #07c160;
+                          color: #fff;
                         }
                     </style>
                     <button>打开小程序</button>
                 </template>
-            </wx-open-launch-weapp>
+            </wx-open-launch-weapp> -->
         </div>
         <!-- PC浏览器页面 -->
         <div id="desktop-web-container" class="hidden">
@@ -127,15 +130,8 @@
             https://developers.weixin.qq.com/miniprogram/dev/wxcloud/guide/staticstorage/jump-miniprogram.html
         */
         // 获取浏览器指纹
-        let visitorId = ''
         const fpPromise = import('https://openfpcdn.io/fingerprintjs/v3')
           .then(FingerprintJS => FingerprintJS.load())
-
-        fpPromise
-          .then(fp => fp.get())
-          .then(result => {
-            visitorId = result.visitorId
-          })
 
         function getUrlParam(name) {
           var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
@@ -143,9 +139,11 @@
           if (r != null) return unescape(r[2]);
           return null;
         };
-        
+
         // 获取URLScheme，这里是固定死的，你需要后端开发人员为你准备个接口或云函数返回URLScheme
-        const getURLScheme = (path,query) =>{
+        const getURLScheme = async (path,query) =>{
+          const visitorId = await fpPromise.then(fp => fp.get()).then(result => result.visitorId)
+
           var data = JSON.stringify({
             fingerprint: visitorId,
             code: getUrlParam('code')
@@ -162,27 +160,28 @@
 
           axios(config)
             .then(function (response) {
-              const { openlink } = response
-              return new Promise((resolve,reject)=>{
-                setTimeout(() => {
-                    resolve(openlink)
-                }, 10);
-            })
+              const res = response.data
+              if (!res.code && res.data) {
+                location.href = res.data
+              } else {
+                
+              }
             })
             .catch(function (error) {
               console.log(error);
             });
         }
+
         // 外部手机浏览器打开URL Scheme，一般会有提示，接受打开即可
         const openWeapp = async (onBeforeJump) => {
             //获取url scheme
-            const openlink = await getURLScheme()
+            await getURLScheme()
             
             if (onBeforeJump) {
               onBeforeJump()
             }
-            location.href = openlink
         }
+
         // 使用开放标签打开小程序时调用，注入wx.config的配置信息,使用小程序云开发静态网站托管的网页可以绕过鉴权，公众号需要后端接口配合返回鉴权参数
         const getWXConfig=async()=>{
             const config={
@@ -228,17 +227,18 @@
                 const containerEl = document.getElementById('wechat-web-container')
                 containerEl.classList.remove('hidden')
                 containerEl.classList.add('full', 'wechat-web-container')
+                openWeapp()
 
-                const launchBtn=document.getElementById('launch-btn')
-                launchBtn.addEventListener('error', function (e) {
-                    console.log('用户拒绝跳转或跳转异常', e.detail)
-                })
-                const config=await getWXConfig()
-                wx.config({
-                    ...config,
-                    jsApiList: ['chooseImage'], // 安卓上必填一个，随机即可
-                    openTagList: ['wx-open-launch-weapp'], // 填入打开小程序的开放标签名
-                })
+                // const launchBtn=document.getElementById('launch-btn')
+                // launchBtn.addEventListener('error', function (e) {
+                //     console.log('用户拒绝跳转或跳转异常', e.detail)
+                // })
+                // const config = await getWXConfig()
+                // wx.config({
+                //     ...config,
+                //     jsApiList: ['chooseImage'], // 安卓上必填一个，随机即可
+                //     openTagList: ['wx-open-launch-weapp'], // 填入打开小程序的开放标签名
+                // })
             } else {
                 // 在非微信的外部手机浏览器使用URLScheme打开小程序
                 const containerEl = document.getElementById('public-web-container')
